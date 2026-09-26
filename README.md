@@ -11,11 +11,11 @@ Over a season the check-ins add up to a mural of everyone who showed up — and 
 reason to open your Seed Vault wallet.
 
 **Honest scope of this hackathon build (v1):** the memo transactions are submitted and
-confirmed on devnet (that part is fully real and auditable), but the board you see renders
-from session-local state — restart the app and the picture is gone while the transactions
-stay on-chain. The shared on-chain board (Anchor program) is milestone 1 of the roadmap.
-The one-check-in-per-day rule and the streak are client-side (per session); recomputing
-them from wallet history is milestone 2.
+confirmed on devnet (fully real and auditable), and on connect the app rehydrates your
+board and streak from your wallet's own memo history — restart-safe for your pixels.
+What's still session-scoped: the board is per-wallet (you see your check-ins, not other
+people's), and the daily rule is client-side. The shared cross-wallet board (Anchor
+program) is milestone 1 of the roadmap.
 
 ## Why this is mobile-native
 
@@ -35,7 +35,9 @@ shipped — RPC and chain are devnet in v1) carrying the pixel payload:
 ```
 
 Program: SPL Memo (`MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`) — every check-in is
-auditable on-chain with the wallet that placed it and the day it was placed. The
+auditable on-chain with the wallet that placed it and the day it was placed. On connect
+the app replays that history (`getSignaturesForAddress` → memo decode) to rebuild your
+pixels and streak, so attendance survives reinstalls, not just sessions. The
 one-transaction-per-wallet-per-day rule is enforced client-side in this build.
 
 Demo clip: cold start → connect wallet (authorize sheet) → tap a cell → sign & send →
@@ -78,12 +80,13 @@ Requires JDK 17 and an Android SDK; the APK installs on any arm64 Android device
 
 ## Roadmap
 
-1. On-chain board state (Anchor program) — pixels live in program accounts, board renders
-   from chain instead of local session state
-2. Streak recomputation from wallet history (getSignaturesForAddress → memo replay),
-   replacing the client-side daily rule
-3. dApp Store release (create-dapp-store, publishing approval)
-4. Season 1 — timed boards, mural mint at season end, creator boards for communities
+1. On-chain board state (Anchor program) — pixels live in program accounts and the board
+   renders from chain for every wallet, not just your own history
+2. dApp Store release (create-dapp-store, publishing approval)
+3. Season 1 — timed boards, mural mint at season end, creator boards for communities
+
+Shipped after the first cut: streak + board rehydration from wallet history
+(`getSignaturesForAddress` → SPL Memo replay).
 
 ## License
 

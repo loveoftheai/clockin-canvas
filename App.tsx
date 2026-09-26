@@ -1,5 +1,6 @@
 import "react-native-get-random-values";
 import { Buffer } from "buffer";
+import bs58 from "bs58";
 import { useState, useCallback } from "react";
 import {
   ActivityIndicator,
@@ -62,6 +63,77 @@ const today = () => new Date().toISOString().slice(0, 10);
 const addressToBase58 = (base64: string) =>
   new PublicKey(Buffer.from(base64, "base64")).toBase58();
 
+/* Rebuild the session board + streak from the wallet's own memo history:
+ * every past clock-in tx is an auditable record, so the app can rehydrate
+ * state after a restart instead of pretending it never happened. */
+const loadHistory = async (feePayer: PublicKey) => {
+  const conn = new Connection("https://api.devnet.solana.com", "confirmed");
+  const sigs = await conn.getSignaturesForAddress(feePayer, { limit: 20 });
+  const found: Pixel[] = [];
+  const days = new Set<string>();
+  for (const s of sigs) {
+    if (!s.signature || s.err) continue;
+    const tx = await conn.getTransaction(s.signature, {
+      maxSupportedTransactionVersion: 0,
+    });
+    const msg = tx?.transaction.message;
+    const ixs = (
+      msg && "instructions" in msg ? msg.instructions : []
+    ) as Array<{
+      data?: string;
+    }>;
+    for (const ix of ixs) {
+      if (!ix.data) continue;
+      try {
+        // legacy tx memo payload arrives as base58-encoded bytes
+        const json = Buffer.from(bs58.decode(ix.data)).toString("utf8");
+        const m = JSON.parse(json) as {
+          app?: string;
+          x?: number;
+          y?: number;
+          c?: string;
+          d?: string;
+        };
+        if (
+          m.app === "clockin" &&
+          m.d &&
+          typeof m.x === "number" &&
+          typeof m.y === "number"
+        ) {
+          days.add(m.d);
+          found.push({
+            x: m.x,
+            y: m.y,
+            color: m.c ?? "#ff9f1c",
+            owner: feePayer.toBase58(),
+            day: m.d,
+            sig: s.signature,
+          });
+        }
+      } catch {
+        // not a clockin memo — ignore
+      }
+    }
+  }
+  // one pixel per day (latest wins), oldest → newest so later days overwrite
+  const byDay = new Map<string, Pixel>();
+  for (const p of found.sort((a, b) => (a.day! < b.day! ? -1 : 1))) {
+    byDay.set(p.day!, p);
+  }
+  const pixels = [...byDay.values()];
+  // streak = consecutive days ending today (or yesterday, grace for timezone)
+  let streak = 0;
+  const cursor = new Date();
+  if (!days.has(today())) cursor.setDate(cursor.getDate() - 1);
+  for (;;) {
+    const d = cursor.toISOString().slice(0, 10);
+    if (!days.has(d)) break;
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return { pixels, streak, days };
+};
+
 const buildClockInTx = (
   feePayer: PublicKey,
   blockhash: string,
@@ -106,10 +178,26 @@ export default function App() {
         w.authorize({ identity: APP_IDENTITY, chain: "solana:devnet" }),
       );
       setAuth(result);
-      setPubkey(addressToBase58(result.accounts[0].address));
+      const feePayer = new PublicKey(
+        Buffer.from(result.accounts[0].address, "base64"),
+      );
+      setPubkey(feePayer.toBase58());
       setWallet("signed-in");
-      // streak starts at 0 and grows only on confirmed clock-ins;
-      // recompute from on-chain history arrives with the Anchor board.
+      setTxState("syncing on-chain history…");
+      // rehydrate board + streak from the wallet's own memo history
+      try {
+        const { pixels: px, streak: st, days } = await loadHistory(feePayer);
+        setPixels(px);
+        setStreak(st);
+        setPlacedToday(days.has(today()));
+        setTxState(
+          px.length
+            ? `synced ${px.length} clock-in${px.length > 1 ? "s" : ""} from devnet`
+            : "no clock-ins yet — tap the board to start",
+        );
+      } catch {
+        setTxState("history sync failed (devnet) — session-local mode");
+      }
     } catch (e) {
       setWallet("signed-out");
       setTxState(
