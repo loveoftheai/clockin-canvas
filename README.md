@@ -61,6 +61,21 @@ on-device UI automation that produced the demo take were all developed with AI a
 reflected in this README). Roadmap: on-device AI suggestions for the daily pixel
 (spot in the mural with the most impact today).
 
+## Evidence
+
+- Demo transaction (the one recorded in `docs/demo.mp4`):
+  [`5cG5AtnH…WU6z`](https://explorer.solana.com/tx/5cG5AtnHMqZ4XDNaoAXSFgqRHGxAWGy6C7tPNYi9WU6z?cluster=devnet)
+  on devnet — SPL Memo instruction, wallet `H5jQC…M1kb`, day `2026-09-26`.
+- Contract tests for the memo codec, day-collapse, and streak rehydration
+  (`src/lib.ts` is shared by the app and the tests, not mirrored):
+
+  ```bash
+  npm test   # node --test, 7 tests
+  ```
+
+- Deck and demo clip: [`docs/`](docs/) (also linked from the hackathon
+  submission).
+
 ## Tech
 
 - Expo SDK 57 / React Native 0.86 / React 19 — TypeScript throughout

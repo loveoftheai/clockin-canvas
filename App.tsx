@@ -19,6 +19,14 @@ import {
 } from "@solana/web3.js";
 import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import type { AuthorizationResult } from "@solana-mobile/mobile-wallet-adapter-protocol";
+import {
+  buildMemoPayload,
+  collapseByDay,
+  decodeMemo,
+  streakFromDays,
+  today,
+  type Pixel,
+} from "./src/lib";
 
 // web3.js expects a Buffer global in RN.
 (globalThis as { Buffer?: typeof Buffer }).Buffer = Buffer;
@@ -48,17 +56,7 @@ const APP_IDENTITY = {
   uri: "https://clockincanvas.app",
 } as const;
 
-type Pixel = {
-  x: number;
-  y: number;
-  color: string;
-  owner?: string;
-  day?: string;
-  sig?: string;
-};
 type WalletState = "signed-out" | "authorizing" | "signed-in";
-
-const today = () => new Date().toISOString().slice(0, 10);
 
 const addressToBase58 = (base64: string) =>
   new PublicKey(Buffer.from(base64, "base64")).toBase58();
@@ -84,53 +82,25 @@ const loadHistory = async (feePayer: PublicKey) => {
     }>;
     for (const ix of ixs) {
       if (!ix.data) continue;
-      try {
-        // legacy tx memo payload arrives as base58-encoded bytes
-        const json = Buffer.from(bs58.decode(ix.data)).toString("utf8");
-        const m = JSON.parse(json) as {
-          app?: string;
-          x?: number;
-          y?: number;
-          c?: string;
-          d?: string;
-        };
-        if (
-          m.app === "clockin" &&
-          m.d &&
-          typeof m.x === "number" &&
-          typeof m.y === "number"
-        ) {
-          days.add(m.d);
-          found.push({
-            x: m.x,
-            y: m.y,
-            color: m.c ?? "#ff9f1c",
-            owner: feePayer.toBase58(),
-            day: m.d,
-            sig: s.signature,
-          });
-        }
-      } catch {
-        // not a clockin memo — ignore
+      // legacy tx memo payload arrives as base58-encoded bytes
+      const m = decodeMemo(ix.data);
+      if (m) {
+        days.add(m.d);
+        found.push({
+          x: m.x,
+          y: m.y,
+          color: m.c,
+          owner: feePayer.toBase58(),
+          day: m.d,
+          sig: s.signature,
+        });
       }
     }
   }
   // one pixel per day (latest wins), oldest → newest so later days overwrite
-  const byDay = new Map<string, Pixel>();
-  for (const p of found.sort((a, b) => (a.day! < b.day! ? -1 : 1))) {
-    byDay.set(p.day!, p);
-  }
-  const pixels = [...byDay.values()];
+  const pixels = collapseByDay(found);
   // streak = consecutive days ending today (or yesterday, grace for timezone)
-  let streak = 0;
-  const cursor = new Date();
-  if (!days.has(today())) cursor.setDate(cursor.getDate() - 1);
-  for (;;) {
-    const d = cursor.toISOString().slice(0, 10);
-    if (!days.has(d)) break;
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
+  const streak = streakFromDays(days);
   return { pixels, streak, days };
 };
 
@@ -143,16 +113,7 @@ const buildClockInTx = (
     new TransactionInstruction({
       programId: MEMO_PROGRAM_ID,
       keys: [],
-      data: Buffer.from(
-        JSON.stringify({
-          app: "clockin",
-          x: p.x,
-          y: p.y,
-          c: p.color,
-          d: p.day,
-        }),
-        "utf8",
-      ),
+      data: Buffer.from(buildMemoPayload(p), "utf8"),
     }),
   );
 
