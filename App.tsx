@@ -26,7 +26,8 @@ import type { AuthorizationResult } from "@solana-mobile/mobile-wallet-adapter-p
  * A shared pixel board for Seeker: your daily check-in places one pixel.
  * Mobile-native rethink of Cookie Canvas (web) — touch-first grid,
  * Mobile Wallet Adapter sign-in, streak mechanics.
- * Board state: on-chain program (devnet for the hackathon build).
+ * v1: board is session-local; the memo txs ARE the on-chain record
+ * (shared on-chain board = next milestone, see README roadmap).
  * ─────────────────────────────────────────────────────────────── */
 
 const GRID = 16; // 16x16 on-phone board; zoom/pan arrives with Skia pass
@@ -91,6 +92,7 @@ export default function App() {
   const [picked, setPicked] = useState(0);
   const [pixels, setPixels] = useState<Pixel[]>([]);
   const [placedToday, setPlacedToday] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [txState, setTxState] = useState<string>("");
 
   // MWA connect — launches the wallet app (Phantom / Seed Vault) via
@@ -106,7 +108,8 @@ export default function App() {
       setAuth(result);
       setPubkey(addressToBase58(result.accounts[0].address));
       setWallet("signed-in");
-      setStreak(1); // streak recompute arrives with on-chain history read
+      // streak starts at 0 and grows only on confirmed clock-ins;
+      // recompute from on-chain history arrives with the Anchor board.
     } catch (e) {
       setWallet("signed-out");
       setTxState(
@@ -120,9 +123,10 @@ export default function App() {
   // Clock-in = one memo tx per wallet per day, signed in the wallet app.
   const placePixel = useCallback(
     async (x: number, y: number) => {
-      if (wallet !== "signed-in" || !auth || placedToday) return;
+      if (wallet !== "signed-in" || !auth || placedToday || busy) return;
       const color = PALETTE[picked];
       const day = today();
+      setBusy(true);
       setTxState("signing in wallet…");
       try {
         const feePayer = new PublicKey(
@@ -148,6 +152,7 @@ export default function App() {
           { x, y, color, owner: pubkey ?? "me", day, sig },
         ]);
         setPlacedToday(true);
+        setStreak((n) => n + 1);
         setTxState(
           sig
             ? `✓ ${sig.slice(0, 4)}…${sig.slice(-4)} confirmed on devnet`
@@ -157,9 +162,11 @@ export default function App() {
         setTxState(
           e instanceof Error ? `tx failed: ${e.message}` : "tx cancelled",
         );
+      } finally {
+        setBusy(false);
       }
     },
-    [wallet, auth, placedToday, picked, pubkey],
+    [wallet, auth, placedToday, busy, picked, pubkey],
   );
 
   return (
@@ -169,7 +176,9 @@ export default function App() {
         <Text style={s.h1}>CLOCK IN CANVAS</Text>
         <Text style={s.sub}>
           {wallet === "signed-in"
-            ? `${pubkey?.slice(0, 4)}…${pubkey?.slice(-4)} · 🔥 ${streak}d streak`
+            ? streak > 0
+              ? `${pubkey?.slice(0, 4)}…${pubkey?.slice(-4)} · 🔥 ${streak}d streak`
+              : `${pubkey?.slice(0, 4)}…${pubkey?.slice(-4)} · clock in to start`
             : "one pixel a day, on-chain forever"}
         </Text>
       </View>
@@ -177,7 +186,7 @@ export default function App() {
       <Board
         pixels={pixels}
         onCell={placePixel}
-        locked={wallet !== "signed-in" || placedToday}
+        locked={wallet !== "signed-in" || placedToday || busy}
       />
 
       <View style={s.paletteRow}>
