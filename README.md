@@ -5,14 +5,15 @@ check-in places one pixel. Every check-in is a real Solana transaction signed in
 wallet; the memo transaction set is the permanent on-chain record of who showed up,
 where, and when.
 
-![Clock In Canvas — devnet check-in confirmed, signature on screen](docs/screenshot.png)
+![Clock In Canvas v1.1 — the daily check-in board](docs/screenshot.png)
 
 Clock In Canvas is the mobile-native evolution of our earlier web experiment
 [Cookie Canvas](https://loveoftheai.github.io/cookie-canvas) (per-pixel on-chain
 provenance board): same idea — pixels as provable on-chain acts — rebuilt as a daily
 ritual for the phone and the Seed Vault wallet.
 
-**Demo video:** [`docs/demo.mp4`](docs/demo.mp4) (22s, one take) ·
+**Demo video:** [`docs/demo.mp4`](docs/demo.mp4) (22s, one take, recorded on the
+initial v1.0 UI — the release APK adds the v1.1 design pass) ·
 **Pitch deck:** [`docs/deck.pdf`](docs/deck.pdf) ·
 **APK:** [GitHub Release `v1.0.0-hackathon`](https://github.com/loveoftheai/clockin-canvas/releases/tag/v1.0.0-hackathon)
 
@@ -127,7 +128,10 @@ Requires JDK 17 and an Android SDK; the APK installs on any arm64 Android device
 3. Season 1 — timed boards, mural mint at season end, creator boards for communities
 
 Shipped after the first cut: streak + board rehydration from wallet history
-(`getSignaturesForAddress` → SPL Memo replay).
+(`getSignaturesForAddress` → SPL Memo replay). The v1.1 pass adds a full design
+refresh (graphite/lavender/mint system, fitted square board) and robustness
+fixes (history pagination to 200 signatures, memo-program filtering,
+latest-wins repaint, sync-time board lock, day rollover on resume).
 
 ## License
 
