@@ -5,6 +5,17 @@ check-in places one pixel. Every check-in is a real Solana transaction signed in
 wallet; the memo transaction set is the permanent on-chain record of who showed up,
 where, and when.
 
+![Clock In Canvas — devnet check-in confirmed, signature on screen](docs/screenshot.png)
+
+Clock In Canvas is the mobile-native evolution of our earlier web experiment
+[Cookie Canvas](https://loveoftheai.github.io/cookie-canvas) (per-pixel on-chain
+provenance board): same idea — pixels as provable on-chain acts — rebuilt as a daily
+ritual for the phone and the Seed Vault wallet.
+
+**Demo video:** [`docs/demo.mp4`](docs/demo.mp4) (22s, one take) ·
+**Pitch deck:** [`docs/deck.pdf`](docs/deck.pdf) ·
+**APK:** [GitHub Release `v1.0.0-hackathon`](https://github.com/loveoftheai/clockin-canvas/releases/tag/v1.0.0-hackathon)
+
 Streak apps die because check-ins live in someone's database. Clock In Canvas makes the
 daily ritual itself the product: touch a cell, sign in your wallet, watch your pixel land.
 Over a season the check-ins add up to a mural of everyone who showed up — and a daily
@@ -58,14 +69,19 @@ once the program SDK is available to this build.
 This project was built AI-first: architecture, MWA v2 wiring, UI, and the redroid-based
 on-device UI automation that produced the demo take were all developed with AI agents
 (Claude Code as the builder, Codex as the adversarial reviewer whose honesty pass is
-reflected in this README). Roadmap: on-device AI suggestions for the daily pixel
-(spot in the mural with the most impact today).
+reflected in this README). The concrete prompts, outputs, and agent-discovered defects —
+including the Hermes toolchain blocker and the three MWA v2 signing rules the agents
+derived from wallet-protocol source — are documented in
+[`docs/ai-process.md`](docs/ai-process.md). Roadmap: on-device AI suggestions for the
+daily pixel (spot in the mural with the most impact today).
 
 ## Evidence
 
 - Demo transaction (the one recorded in `docs/demo.mp4`):
-  [`5cG5AtnH…WU6z`](https://explorer.solana.com/tx/5cG5AtnHMqZ4XDNaoAXSFgqRHGxAWGy6C7tPNYi9WU6z?cluster=devnet)
-  on devnet — SPL Memo instruction, wallet `H5jQC…M1kb`, day `2026-09-26`.
+  [`2t4ijdFU…QzPs`](https://explorer.solana.com/tx/2t4ijdFUTU3q79Zg8gW7AZRwsaYetByomA3miEburQrf5SczSFsK5N1NACgrn6oNpvrMi8PqPE3p3oxzG1jyQzPs?cluster=devnet)
+  on devnet — SPL Memo instruction `{app: clockin, x: 8, y: 7, c: #ff9f1c, d: 2026-09-26}`,
+  paid and signed by the demo wallet `5cG5AtnH…WU6z` (the persistent fakewallet account
+  used for the on-device take).
 - Contract tests for the memo codec, day-collapse, and streak rehydration
   (`src/lib.ts` is shared by the app and the tests, not mirrored):
 
@@ -88,10 +104,20 @@ reflected in this README). Roadmap: on-device AI suggestions for the daily pixel
 ```bash
 npm install
 npx tsc --noEmit
-cd android && ./gradlew :app:assembleRelease   # app-release.apk
+cd android && ./gradlew :app:assembleRelease   # android/app/build/outputs/apk/release/app-release.apk
 ```
 
 Requires JDK 17 and an Android SDK; the APK installs on any arm64 Android device or emulator.
+
+### Try the release APK
+
+1. Install
+   [`app-release.apk`](https://github.com/loveoftheai/clockin-canvas/releases/download/v1.0.0-hackathon/app-release.apk)
+   (`adb install app-release.apk`, or download on-device).
+2. Open any Mobile Wallet Adapter wallet (Solflare / Phantom mobile / Backpack; the demo
+   used the reference `fakewallet` build) and fund it on devnet — any devnet faucet.
+3. In Clock In Canvas: **Connect** → authorize → tap any cell → **Sign & Send** →
+   the pixel lands and the explorer link with the signature appears.
 
 ## Roadmap
 
