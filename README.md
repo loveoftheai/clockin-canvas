@@ -64,8 +64,9 @@ reflected in this README). Roadmap: on-device AI suggestions for the daily pixel
 ## Evidence
 
 - Demo transaction (the one recorded in `docs/demo.mp4`):
-  [`5cG5AtnH…WU6z`](https://explorer.solana.com/tx/5cG5AtnHMqZ4XDNaoAXSFgqRHGxAWGy6C7tPNYi9WU6z?cluster=devnet)
-  on devnet — SPL Memo instruction, wallet `H5jQC…M1kb`, day `2026-09-26`.
+  [`K65jkTXg…XkyBh`](https://explorer.solana.com/tx/K65jkTXgjJbr1spFPNR4SHKsQpbyi3mVc4WEHkiuFHeDHqqrm4JotcDQCj2RkYXZuNNPj9bUphc2fBGNyzXkyBh?cluster=devnet)
+  on devnet — SPL Memo instruction (`x:7,y:7` orange square), wallet
+  `43D4FX…hDDF`, day `2026-09-30`.
 - Contract tests for the memo codec, day-collapse, and streak rehydration
   (`src/lib.ts` is shared by the app and the tests, not mirrored):
 
