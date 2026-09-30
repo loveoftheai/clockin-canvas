@@ -6,13 +6,35 @@ reviewer. Below is what that looked like concretely — the prompts that mattere
 the agents discovered, and where the human stepped in. Nothing here is aspirational;
 every item maps to a commit, a log, or a recorded take.
 
+**Commits that map to this record:**
+[rehydrate from wallet history](https://github.com/loveoftheai/clockin-canvas/commit/9a60caa) ·
+[honesty pass](https://github.com/loveoftheai/clockin-canvas/commit/6df56ff) ·
+[shared lib + contract tests](https://github.com/loveoftheai/clockin-canvas/commit/b08374b) ·
+[v1.1 design pass](https://github.com/loveoftheai/clockin-canvas/commit/05f8e72)
+
 ## 1. The agent derived MWA v2's real signing rules from protocol source
 
 The first `sign_and_send_transactions` calls failed with opaque codes (`-1 auth_token
 not valid for signing`, `-2 payloads invalid for signing`). Instead of guessing, the
 agent read the wallet-protocol TypeScript source (`mobile-wallet-adapter-protocol`)
 and the reference wallet implementation, and derived three rules that the docs don't
-state plainly:
+state plainly. The actual exchange looked like:
+
+> **Agent working note (verbatim):** "the error is -1 / auth_token not valid for
+> signing — so sign_and_send_transactions is a _privileged_ method in MWA v2:
+> it must ride the same session as authorize. Re-checking
+> `mobile-wallet-adapter-protocol/src/protocol.ts`: authorize returns the token, but
+> only calls issued inside the same `transact()` callback carry it."
+>
+> **Resulting code** (now in `App.tsx`): `transact(async (w) => { const reauth =
+await w.authorize({ identity, chain: "solana:devnet" }); return
+w.signAndSendTransactions({ transactions: [tx] }); })` — same-session
+> authorize-before-sign. The next run confirmed on devnet.
+
+A second example, from the final adversarial pass: Codex caught that the rehydration
+filter compared SDK `PublicKey` objects against a base58 string (always unequal —
+board would silently rehydrate empty). The fix normalizes via `toBase58()` before
+comparing; shipped the same day in the v1.1 robustness pass.
 
 1. `sign_and_send_transactions` is a **privileged method**: it must be called inside the
    same `transact()` session that ran `authorize` — an auth token from a previous
