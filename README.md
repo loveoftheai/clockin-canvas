@@ -31,7 +31,7 @@ program) is milestone 1 of the roadmap.
 
 ## Why this is mobile-native
 
-- **Touch-first 16×16 board** — big cells, one-thumb clock-in, not a desktop canvas ported down.
+- **Touch-first 16×16 board** — a fitted square grid sized to the phone screen, one-thumb clock-in, not a desktop canvas ported down.
 - **Seed Vault / Mobile Wallet Adapter** — sign-in and signing go through the native wallet
   flow (`mobile-wallet-adapter-protocol-web3js`), MWA v2 semantics.
 - **A 20-second ritual** — open, tap, sign, done. Habit mechanics (streak, one-pixel-per-day)
@@ -118,7 +118,8 @@ Requires JDK 17 and an Android SDK; the APK installs on any arm64 Android device
 2. Open any Mobile Wallet Adapter wallet (Solflare / Phantom mobile / Backpack; the demo
    used the reference `fakewallet` build) and fund it on devnet — any devnet faucet.
 3. In Clock In Canvas: **Connect** → authorize → tap any cell → **Sign & Send** →
-   the pixel lands and the explorer link with the signature appears.
+   the pixel lands and the confirmed signature appears in the status line (the
+   full explorer link for the demo take is under Evidence below).
 
 ## Roadmap
 
