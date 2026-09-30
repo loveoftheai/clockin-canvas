@@ -10,6 +10,7 @@ export type Pixel = {
   owner?: string;
   day?: string;
   sig?: string;
+  seq?: number; // chain order (higher = newer); tiebreak within a day
 };
 
 export type MemoPayload = {
@@ -57,9 +58,13 @@ export const decodeMemo = (ixData: string): MemoPayload | null => {
 };
 
 /* One pixel per day: sort oldest → newest so later days (and later txs on
- * the same day) overwrite earlier ones, then keep the last per day. */
+ * the same day — higher seq, regardless of input order) overwrite earlier
+ * ones, then keep the last per day. */
 export const collapseByDay = (found: Pixel[]): Pixel[] => {
-  const sorted = [...found].sort((a, b) => (a.day! < b.day! ? -1 : 1));
+  const sorted = [...found].sort((a, b) => {
+    if (a.day! !== b.day!) return a.day! < b.day! ? -1 : 1;
+    return (a.seq ?? 0) - (b.seq ?? 0);
+  });
   const byDay = new Map<string, Pixel>();
   for (const p of sorted) byDay.set(p.day!, p);
   return [...byDay.values()];
