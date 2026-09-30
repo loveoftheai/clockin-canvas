@@ -82,16 +82,22 @@ const loadHistory = async (feePayer: PublicKey) => {
     if (!sigs.length) break;
     before = sigs[sigs.length - 1].signature ?? undefined;
     const good = sigs.filter((s) => s.signature && !s.err);
-    // fetch transaction bodies in devnet-friendly batches of 10
+    // fetch transaction bodies in devnet-friendly batches of 10;
+    // a failed batch is skipped, not fatal — keep whatever synced so far
     for (let i = 0; i < good.length; i += 10) {
       const batch = good.slice(i, i + 10);
-      const txs = await Promise.all(
-        batch.map((s) =>
-          conn.getTransaction(s.signature!, {
-            maxSupportedTransactionVersion: 0,
-          }),
-        ),
-      );
+      let txs;
+      try {
+        txs = await Promise.all(
+          batch.map((s) =>
+            conn.getTransaction(s.signature!, {
+              maxSupportedTransactionVersion: 0,
+            }),
+          ),
+        );
+      } catch {
+        continue;
+      }
       txs.forEach((tx, j) => {
         const msg = tx?.transaction.message;
         const ixs = (
@@ -103,14 +109,23 @@ const loadHistory = async (feePayer: PublicKey) => {
         }>;
         for (const ix of ixs) {
           if (!ix.data) continue;
-          // count only SPL Memo instructions on the clockin program
-          // (json encoding: programIdIndex into accountKeys; jsonParsed: programId)
-          const pid =
+          // count only SPL Memo instructions on the clockin program.
+          // json encoding: programIdIndex indexes accountKeys, which the
+          // SDK returns as PublicKey objects (not strings — normalize
+          // before comparing); jsonParsed: programId as string.
+          const rawPid =
             typeof ix.programId === "string"
               ? ix.programId
-              : (msg as { accountKeys?: string[] }).accountKeys?.[
+              : (msg as { accountKeys?: unknown[] }).accountKeys?.[
                   ix.programIdIndex ?? -1
                 ];
+          const pid =
+            typeof rawPid === "string"
+              ? rawPid
+              : typeof (rawPid as { toBase58?: unknown } | undefined)
+                    ?.toBase58 === "function"
+                ? (rawPid as { toBase58: () => string }).toBase58()
+                : undefined;
           if (pid !== MEMO_PROGRAM_ID.toBase58()) continue;
           // legacy tx memo payload arrives as base58-encoded bytes
           const m = decodeMemo(ix.data);
@@ -211,15 +226,25 @@ export default function App() {
   }, []);
 
   // Day rollover: if the app stays open across midnight (or is backgrounded
-  // and resumed), unlock the board for the new day without a reconnect.
+  // and resumed), unlock the board for the new day without a reconnect —
+  // and recompute the streak from known days (a multi-day gap resets it
+  // instead of incrementing a stale count).
+  const refreshRollover = useCallback(() => {
+    if (placedToday && !daysRef.current.has(today())) {
+      setPlacedToday(false);
+      setStreak(streakFromDays(daysRef.current));
+    }
+  }, [placedToday]);
   useEffect(() => {
     const sub = AppState.addEventListener("change", (st) => {
-      if (st === "active" && placedToday && !daysRef.current.has(today())) {
-        setPlacedToday(false);
-      }
+      if (st === "active") refreshRollover();
     });
-    return () => sub.remove();
-  }, [placedToday]);
+    const timer = setInterval(refreshRollover, 60_000); // foreground midnight
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+    };
+  }, [refreshRollover]);
 
   // Clock-in = one memo tx per wallet per day, signed in the wallet app.
   const placePixel = useCallback(
